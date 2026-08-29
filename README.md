@@ -21,7 +21,9 @@ Este taller adapta el enfoque clásico de **TDD** (Red → Green → Refactor) a
 - [Ejercicio](#ejercicio-registraduría)
 - [TDD (Red → Green → Refactor)](#tdd-paso-a-paso-red--green--refactor)
 - [Patrón AAA (Arrange – Act – Assert)](#patrón-aaa-arrange--act--assert)
-- [Ejecutar pruebas](#ejecutar-las-pruebas)
+- [Iteraciones TDD paso a paso](#iteraciones-tdd-paso-a-paso)
+  - [Iteración 1 — camino feliz](#iteración-1--camino-feliz)
+  - [Iteración 2 — persona muerta](#iteración-2--persona-muerta)
 - [Clases de equivalencia](#clases-de-equivalencia)
 - [Guía avanzada de Pruebas Unitarias](#guía-avanzada-de-pruebas-unitarias)
 - [Para entregar](#para-entregar-con-este-taller)
@@ -67,7 +69,7 @@ Ingrese a la pestaña de Maven y haga click en el texto de la dependencia para c
 Edite el archivo `pom.xml` y realice las siguientes actualizaciones:
 
 - Agregue/Reemplace la dependencia copiada a la sección de dependencias.
-- Cambie la versión del compilador de Java a la versión 8 (o el de su computador), agregando la sección `properties` antes de la sección de dependencias:
+- Fije la versión del compilador de Java a la de su computador (verifíquela con `java -version`), agregando la sección `properties` antes de la sección de dependencias:
 
 ---
 
@@ -76,8 +78,8 @@ Edite el archivo `pom.xml` y realice las siguientes actualizaciones:
 ```xml
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>
+    <!-- Baje este valor si su JDK es anterior (por ejemplo 11 u 8). -->
+    <maven.compiler.release>17</maven.compiler.release>
   </properties>
 
   <dependencies>
@@ -134,8 +136,19 @@ Se usará la clase *Person* que se describe más adelante. El servicio de la reg
 
 ### REQUERIMIENTOS
 
-- Solo se registrarán votantes válidos.
-- Solo se permite una inscripción por número de documento.
+Estas son las **reglas de negocio** que debe cumplir `registerVoter(Person)`. Son su especificación: cada regla se convertirá en al menos una prueba.
+
+| # | Regla de negocio | Resultado |
+|---|------------------|-----------|
+| R1 | La persona no puede ser nula | `INVALID` |
+| R2 | El número de documento debe ser positivo (`id > 0`) | `INVALID` |
+| R3 | La persona debe estar viva | `DEAD` |
+| R4 | La edad debe ser biológicamente posible (`0 ≤ edad ≤ 120`) | `INVALID_AGE` |
+| R5 | La persona debe ser mayor de edad (`edad ≥ 18`) | `UNDERAGE` |
+| R6 | Solo se permite una inscripción por número de documento | `DUPLICATED` |
+| R7 | Si cumple todas las anteriores, queda registrada | `VALID` |
+
+> **Orden de evaluación**: las reglas se evalúan en el orden R1 → R7 y la primera que falle determina el resultado. Ejemplo: una persona **muerta de 15 años** devuelve `DEAD`, no `UNDERAGE`. Este orden es una decisión de diseño; documéntela en su Wiki, porque cambia el resultado esperado de varias pruebas.
 
 ---
 
@@ -168,6 +181,8 @@ Cree el archivo `RegisterResult.java` en el directorio `edu.unisabana.tyvs.domai
 package edu.unisabana.tyvs.domain.model;
 public enum RegisterResult { VALID, DUPLICATED, INVALID }
 ```
+
+> 📌 **El enum va a crecer.** Empezamos solo con los tres valores que necesita la primera iteración. `DEAD`, `UNDERAGE` e `INVALID_AGE` se agregan más adelante, en la iteración de TDD que los necesita. Agregar constantes "por si acaso" antes de tener una prueba que las exija va en contra del ciclo Red → Green → Refactor.
 
 Cree el archivo `Gender.java` en el paquete `edu.unisabana.tyvs.domain.model` con la enumeración:
 
@@ -214,10 +229,13 @@ public class Registry {
 
     public RegisterResult registerVoter(Person p) {
         // TODO Validate person and return real result.
-        return RegisterResult.VALID;
+        throw new UnsupportedOperationException("Sin implementar");
     }
 }
 ```
+
+> ⚠️ **Por qué lanzamos una excepción y no `return RegisterResult.VALID;`**
+> Si el esqueleto ya devolviera `VALID`, la primera prueba pasaría de inmediato y **nunca veríamos la barra roja**. En TDD el rojo no es un accidente: es la evidencia de que la prueba realmente ejercita el código y de que puede fallar. Una prueba que jamás ha estado en rojo no prueba nada.
 
 ---
 
@@ -276,11 +294,15 @@ Empecemos ...
 
 ---
 
-## EJECUTAR LAS PRUEBAS
+## ITERACIONES TDD PASO A PASO
+
+Las dos primeras iteraciones están guiadas paso a paso. De la tercera en adelante las construye usted.
 
 ---
 
-### 1. RED: primera prueba (camino feliz)
+## ITERACIÓN 1 — camino feliz
+
+### 1.1 RED: primera prueba
 
 Bajo la carpeta de pruebas, cree la clase `RegistryTest.java` en el directorio `edu.unisabana.tyvs.domain.service`:
 
@@ -306,13 +328,9 @@ public class RegistryTest {
         Assert.assertEquals(RegisterResult.VALID, result);
     }
 }
-
-
 ```
 
-### 2. GREEN: implementación mínima para segunda prueba
-
-Ya devuelve `VALID`, la prueba pasa.
+Ejecute `mvn clean test`. La prueba **falla** con `UnsupportedOperationException`: esa es la barra roja. 🔴
 
 ---
 
@@ -322,22 +340,45 @@ Recuerde ejecutar todos los comandos Maven desde la carpeta **raíz del proyecto
 
 ---
 
-Para correr las pruebas utilice:
+#### 🧪 Ejercicio: `compile` vs. `test`
+
+Ejecute **primero**:
 
 ```sh
 mvn clean compile
 ```
 
-También puede utilizar:
+y **después**:
 
 ```sh
 mvn clean test
 ```
 
+Compare las dos salidas. En este momento su prueba está en rojo, y sin embargo `mvn clean compile` reporta **`BUILD SUCCESS`**. ¿Por qué? ¿Cuál de los dos comandos ejecutó realmente las pruebas?
+
+> ⚠️ **Cuidado**: `mvn compile` **no ejecuta las pruebas**, solo compila el código de `src/main`. Si usa `compile` para "verificar" su trabajo, verá `BUILD SUCCESS` aunque todas sus pruebas estén fallando. Para correr las pruebas use **`mvn test`**.
+
+Tip: [Maven Lifecycle Phases](https://www.devopsschool.com/blog/maven-tutorials-maven-lifecycle-phases-goal).
+
 ---
 
-Revise cuál es la diferencia.
-Tip: [Maven Lifecycle Phases](https://www.devopsschool.com/blog/maven-tutorials-maven-lifecycle-phases-goal).
+### 1.2 GREEN: implementación mínima
+
+Reemplace la excepción por el mínimo código que hace pasar la prueba:
+
+```java
+    public RegisterResult registerVoter(Person p) {
+        return RegisterResult.VALID;
+    }
+```
+
+Ejecute `mvn clean test`: barra verde. 🟢
+
+Sí, es "hacer trampa": el método devuelve `VALID` para *cualquier* entrada. Eso es correcto en TDD. La implementación solo debe ser tan general como lo exijan las pruebas que existen; será la **siguiente** prueba la que obligue a generalizarla.
+
+### 1.3 REFACTOR
+
+Todavía no hay duplicación ni nada que limpiar. Un refactor vacío también es una respuesta válida del ciclo.
 
 ---
 
@@ -345,7 +386,11 @@ Pero hagamos otra prueba ...
 
 ---
 
-### 1. RED: persona muerta → DEAD
+## ITERACIÓN 2 — persona muerta
+
+### 2.1 RED: persona muerta → DEAD
+
+Agregue esta prueba a `RegistryTest`:
 
 ```java
 
@@ -364,9 +409,17 @@ Pero hagamos otra prueba ...
 
 ```
 
-### 2. GREEN: implementación mínima
+La prueba **no compila**: `RegisterResult.DEAD` todavía no existe. Un error de compilación en la prueba también es rojo 🔴 — es la señal de que el dominio necesita crecer.
 
-Agregue este código a su clase `Registry.java` para ir complementando y haciendo mas robusta su clase.
+### 2.2 GREEN: implementación mínima
+
+Primero agregue la constante que la prueba exige, en `RegisterResult.java`:
+
+```java
+public enum RegisterResult { VALID, DUPLICATED, INVALID, DEAD }
+```
+
+Y luego la regla en `Registry.java`:
 
 ```java
 
@@ -374,9 +427,11 @@ if (!p.isAlive()) return RegisterResult.DEAD;
 
 ```
 
-### 3. Refactor
+Barra verde otra vez. 🟢
 
-Refactorizando el código.
+### 2.3 REFACTOR
+
+Ahora sí hay algo que mejorar: ordenamos las guardas y agregamos la validación defensiva de `null`.
 
 ```java
 package edu.unisabana.tyvs.domain.service;
@@ -399,17 +454,44 @@ public class Registry {
 }
 ```
 
-y
+**El refactor también aplica a las pruebas.** Las dos pruebas repiten `new Registry()`; extraiga esa línea a un `@Before`:
 
 ```java
-package edu.unisabana.tyvs.domain.model;
+public class RegistryTest {
 
-public enum RegisterResult {
-    VALID, DUPLICATED, INVALID, DEAD
+    private Registry registry;
+
+    @Before
+    public void setUp() {
+        registry = new Registry(); // instancia limpia para cada prueba
+    }
+
+    @Test
+    public void shouldRegisterValidPerson() {
+        // Arrange: preparar los datos
+        Person person = new Person("Ana", 1, 30, Gender.FEMALE, true);
+        ...
+    }
 }
 ```
 
-Ejecutar y validar nuevamente el resultado.
+Ejecutar y validar nuevamente el resultado: las dos pruebas siguen en verde. 🟢
+
+> 🛑 **Aquí termina la parte guiada.** Este es exactamente el estado en el que encuentra el código en este repositorio (`registraduria/`). Las iteraciones 3 en adelante — id inválido, edad y duplicados — las construye usted, con el mismo ciclo Red → Green → Refactor. Las secciones siguientes le dan las clases de equivalencia y los escenarios BDD que debe cubrir.
+
+---
+
+### 💡 Pista para la regla de duplicados (R6)
+
+`Registry` como está no puede detectar duplicados: **no tiene memoria**. Va a necesitar guardar los `id` ya registrados, por ejemplo:
+
+```java
+private final Set<Integer> registrados = new HashSet<>();
+```
+
+Esto convierte a `Registry` en un objeto **con estado**, y eso tiene una consecuencia directa sobre sus pruebas: si dos pruebas comparten la misma instancia, la primera contamina a la segunda y el resultado depende del orden de ejecución (un defecto clásico y muy difícil de diagnosticar). El `@Before` que introdujo en el refactor de la iteración 2 ya lo protege de eso: **cada prueba recibe un `Registry` limpio**.
+
+Lo que empezó como una limpieza estética resulta ser una condición necesaria para que las pruebas sean independientes. Documente esta observación en su Wiki: es un buen ejemplo de por qué el paso *Refactor* no es opcional.
 
 ---
 
@@ -430,12 +512,33 @@ Para `registerVoter(Person)` el espacio de entradas se define por los atributos 
   - `alive = true` → continúa evaluación de edad/duplicados.
 
 - Identificador (unicidad)
-  - Clase inválida de formato (opcional según tu enum): `id ≤ 0` → `INVALID`/`INVALID_ID`.
+  - Clase inválida de formato: `id ≤ 0` → `INVALID` (límites: `0` y `-1`).
   - Clase “duplicado”: mismo `id` ya registrado → `DUPLICATED`.
   - Clase “único”: `id` no registrado → continúa evaluación.
 
 - Nulidad
   - `person == null` → `INVALID` (validación defensiva).
+
+---
+
+### Enum final
+
+Al terminar todas las iteraciones, `RegisterResult` habrá crecido hasta cubrir las seis clases de equivalencia:
+
+```java
+package edu.unisabana.tyvs.domain.model;
+
+public enum RegisterResult {
+    VALID,        // cumple todas las reglas
+    DUPLICATED,   // id ya registrado
+    INVALID,      // persona nula o id <= 0
+    DEAD,         // no está viva
+    UNDERAGE,     // 0 <= edad < 18
+    INVALID_AGE   // edad < 0 o edad > 120
+}
+```
+
+Recuerde: **no lo escriba todo de una vez**. Cada constante se agrega en la iteración de TDD que la necesita.
 
 ---
 
@@ -464,16 +567,22 @@ Ejemplo:
 ### 2. Cobertura de código
 
 Agrega **JaCoCo** para medir cobertura.
-Este plugin debe incluirse dentro de la sección `<build><plugins> ... </plugins></build>` del archivo `pom.xml`.
+
+⚠️ Pegue **solo el elemento `<plugin>`** que aparece abajo, dentro del `<build><plugins>` que su `pom.xml` **ya tiene** (junto a `maven-surefire-plugin`). No cree una segunda sección `<build>`: Maven fallará con `Duplicated tag: 'build'`.
 
 ```xml
-    <!-- (Opcional pero recomendado) JaCoCo para cobertura -->
-    <build>
-      <plugins>
+        <!-- (Opcional pero recomendado) JaCoCo para cobertura -->
         <plugin>
           <groupId>org.jacoco</groupId>
           <artifactId>jacoco-maven-plugin</artifactId>
           <version>0.8.12</version>
+          <configuration>
+            <!-- App es el "Hello World" del arquetipo: no es dominio y no se prueba.
+                 Sin excluirlo, arrastra la cobertura global por debajo del 80%. -->
+            <excludes>
+              <exclude>**/App.class</exclude>
+            </excludes>
+          </configuration>
           <executions>
             <execution>
               <id>prepare-agent</id>
@@ -490,11 +599,15 @@ Este plugin debe incluirse dentro de la sección `<build><plugins> ... </plugins
             </execution>
           </executions>
         </plugin>
-      </plugins>
-    </build>
 ```
 
-Ejecuta:
+Como el reporte está enganchado a la fase `verify`, basta con un solo comando:
+
+```sh
+mvn clean verify
+```
+
+Alternativa equivalente en dos pasos:
 
 ```sh
 mvn clean test
@@ -503,9 +616,11 @@ mvn jacoco:report
 
 Revisa el archivo `target/site/jacoco/index.html`.
 
+> 📊 **Referencia**: con las dos pruebas de las iteraciones 1 y 2, la cobertura global arranca en **~87%**. Al completar las clases de equivalencia que faltan debería superar el 90%.
+
 ---
 
-## 3. Robustez de las pruebas
+### 3. Robustez de las pruebas
 
 La escritura de pruebas con **BDD (Behavior-Driven Development)** busca que los casos de prueba se expresen en un lenguaje cercano al negocio, entendible tanto para desarrolladores como para usuarios y analistas. A diferencia de las pruebas unitarias tradicionales, que se centran en métodos o clases, en BDD se describe el **comportamiento esperado del sistema** usando una narrativa estructurada en términos de Given–When–Then (Dado–Cuando–Entonces). Esto facilita la comunicación entre los diferentes actores de un proyecto, asegura que las pruebas estén alineadas con los requisitos funcionales y promueve que el código se construya a partir de la especificación del comportamiento deseado. En el marco de esta asignatura, BDD aporta claridad al proceso de validación, ya que conecta directamente las reglas de negocio con la verificación automatizada, fortaleciendo la robustez y la trazabilidad de las pruebas.
 
@@ -520,7 +635,7 @@ Escenario: Rechazar persona menor de edad
 
 ---
 
-## 4. Clases de equivalencia y escenarios BDD
+### 4. Clases de equivalencia y escenarios BDD
 
 La siguiente tabla combina los nombres de los tests unitarios (estilo técnico en JUnit) con su respectiva especificación en **BDD (Given–When–Then)**, de manera que se mantenga trazabilidad entre las reglas de negocio y las pruebas.
 
@@ -537,7 +652,7 @@ La siguiente tabla combina los nombres de los tests unitarios (estilo técnico e
 
 ---
 
-## 5. Gestión de defectos
+### 5. Gestión de defectos
 
 Crea un archivo `defectos.md` para documentar fallos:
 
@@ -552,7 +667,7 @@ Crea un archivo `defectos.md` para documentar fallos:
 
 ---
 
-## 6. Automatización e integración (Opcional)
+### 6. Automatización e integración (Opcional)
 
 - Ejecuta las pruebas unitarias en cada commit con CI (GitHub Actions, Jenkins, GitLab CI).
 - Rechaza merges si `mvn test` falla.
@@ -570,6 +685,15 @@ Puedes consultarla en el siguiente enlace: [**Taller de Integración Continua en
 - Archivo **`.gitignore`** (excluir `target/`, archivos del IDE, etc.).
 - Archivo **`integrantes.txt`** o sección en el README con nombres completos.
 - **Rama principal compilable**: `mvn clean test` sin pasos manuales adicionales.
+
+> ⚠️ **Verifique que el código quedó realmente versionado.** Un `.gitignore` demasiado amplio (por ejemplo `registraduria` en vez de `registraduria/target/`) puede excluir todo su proyecto sin dar ningún error. Compruébelo antes de entregar:
+>
+> ```sh
+> git ls-files            # deben aparecer sus .java y el pom.xml
+> git status --ignored    # revise que no haya código fuente en la lista de ignorados
+> ```
+>
+> La prueba definitiva: clone su propio repositorio en otra carpeta y ejecute `mvn clean test`.
 
 ### 2) Documentación en Wiki (obligatoria)
 
@@ -596,9 +720,10 @@ Incluye **enlaces al código** (clases y tests) dentro de cada sección del Wiki
 
 ### 4) Cobertura (JaCoCo)
 
-- Reporte **JaCoCo** generado en `target/site/jacoco/index.html`.
+- Reporte **JaCoCo** generado en `target/site/jacoco/index.html` (`mvn clean verify`).
 - **≥ 80%** cobertura **global** (y ≥ 80% en el paquete de dominio).
 - Adjuntar **capturas** en el Wiki y comentar brevemente qué líneas quedaron sin cubrir y por qué.
+- La clase `App` del arquetipo está **excluida** del reporte (ver `<excludes>` en el `pom.xml`): es un `Hello World` sin lógica de negocio y, sin excluirla, baja la cobertura global unos 7 puntos.
 
 ### 5) Evidencia de TDD
 
@@ -625,6 +750,8 @@ Incluye **enlaces al código** (clases y tests) dentro de cada sección del Wiki
 
 - Constantes extraídas (ej.: `MIN_AGE`, `MAX_AGE`).
 - Sin **código muerto** ni duplicación obvia.
+  - Elimine los sobrantes del arquetipo Maven que ya no aporten: la prueba `AppTest.shouldAnswerWithTrue()` (`assertTrue(true)` no verifica nada) y, si no la usa, la clase `App`. Solo sirvieron para comprobar que el proyecto se creó bien.
+  - Use `@Before` para no repetir `new Registry()` en cada prueba.
 - Nombrado autoexplicativo y comentarios mínimos pero útiles.
 
 ### 9) Reflexión final (en el Wiki)

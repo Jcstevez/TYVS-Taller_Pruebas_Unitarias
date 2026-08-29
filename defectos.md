@@ -1,7 +1,12 @@
-# Registro de Defectos
+# Registro de Defectos — EJEMPLO RESUELTO
+
+> ℹ️ **Este archivo es un ejemplo del profesor**, no su entrega. Muestra el nivel de detalle y los dos formatos aceptados.
+> Para su taller, parta de [`defectos_template.md`](defectos_template.md) y documente los defectos que **usted** encuentre al ejecutar sus propias pruebas.
 
 Este documento recopila los defectos encontrados durante la ejecución de pruebas unitarias del proyecto **Registraduría**.
 Cada defecto debe documentarse claramente para facilitar su análisis y corrección.
+
+Los defectos de abajo se detectaron sobre el estado del código **al terminar la iteración 1** del README (cuando `registerVoter` aún devolvía `VALID` para cualquier entrada).
 
 ---
 
@@ -25,7 +30,7 @@ Cada defecto debe documentarse claramente para facilitar su análisis y correcci
 - **Resultado esperado**: `DEAD`
 - **Resultado obtenido**: `VALID`
 - **Causa probable**: No se evalúa la condición `alive=false`.
-- **Estado**: Abierto
+- **Estado**: **Resuelto** — corregido en la iteración 2 (`if (!p.isAlive()) return RegisterResult.DEAD;`) y verificado con la prueba `shouldRejectDeadPerson`.
 
 ---
 
@@ -51,7 +56,7 @@ Cada defecto debe documentarse claramente para facilitar su análisis y correcci
 | ID | Caso de Prueba | Entrada | Resultado Esperado | Resultado Obtenido | Causa Probable | Estado |
 |-----|---------------------|---------|--------------------|--------------------|----------------|--------|
 | 01 | Edad inválida | `Person(id=101, age=-1, alive=true)` | `INVALID_AGE` | `VALID` | No se valida edad negativa | Abierto |
-| 02 | Persona muerta | `Person(id=102, age=45, alive=false)` | `DEAD` | `VALID` | No se evalúa condición `alive=false` | Abierto |
+| 02 | Persona muerta | `Person(id=102, age=45, alive=false)` | `DEAD` | `VALID` | No se evalúa condición `alive=false` | Resuelto (iteración 2) |
 | 03 | Registro duplicado | `Person(id=200, age=30, alive=true)` + `Person(id=200, age=25, alive=true)` | 1º → `VALID` 2º → `DUPLICATED` | 1º → `VALID` 2º → `VALID` | No hay verificación de `id` duplicado | Abierto |
 
 ---
