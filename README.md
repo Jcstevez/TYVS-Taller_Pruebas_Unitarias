@@ -25,7 +25,10 @@ Este taller adapta el enfoque clásico de **TDD** (Red → Green → Refactor) a
   - [Iteración 1 — camino feliz](#iteración-1--camino-feliz)
   - [Iteración 2 — persona muerta](#iteración-2--persona-muerta)
 - [Clases de equivalencia](#clases-de-equivalencia)
+- [Pruebas basadas en propiedades](#pruebas-basadas-en-propiedades)
 - [Guía avanzada de Pruebas Unitarias](#guía-avanzada-de-pruebas-unitarias)
+  - [Cobertura de código (JaCoCo)](#2-cobertura-de-código)
+  - [Pruebas de mutación (PIT)](#21-por-qué-la-cobertura-no-basta-pruebas-de-mutación)
 - [Para entregar](#para-entregar-con-este-taller)
 - [Resumen del Taller de TDD](#hagamos-un-resumen)
 - [Conclusión](#conclusión)
@@ -62,7 +65,7 @@ Busque el artefacto JUnit y entre a la versión más nueva.
 
 #### ⚠️ Nota sobre ubicación de archivos
 
-Ingresar directamente a ["2. Junit"](https://mvnrepository.com/artifact/junit/junit).
+Ingresar directamente a ["JUnit Jupiter (Aggregator)"](https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter).
 
 Ingrese a la pestaña de Maven y haga click en el texto de la dependencia para copiarlo al portapapeles.
 
@@ -78,16 +81,16 @@ Edite el archivo `pom.xml` y realice las siguientes actualizaciones:
 ```xml
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <!-- Baje este valor si su JDK es anterior (por ejemplo 11 u 8). -->
+    <!-- Baje este valor si su JDK es anterior (por ejemplo 11). -->
     <maven.compiler.release>17</maven.compiler.release>
   </properties>
 
   <dependencies>
-    <!-- JUnit 4 -->
+    <!-- JUnit 5 (Jupiter): @Test, @BeforeEach, @DisplayName, Assertions -->
     <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.13.2</version>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.2</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -124,7 +127,7 @@ Ejecute el comando para ejecutar las pruebas unitarias de un proyecto desde Mave
 mvn clean test
 ```
 
- Se debe ejecutar la clase `AppTest` con resultado exitoso.
+ El arquetipo genera una clase `AppTest` de relleno; debe ejecutarse con resultado exitoso. Es solo una verificación de que el proyecto quedó bien creado: la borraremos al final, porque `assertTrue(true)` no verifica nada.
 
 ---
 
@@ -310,8 +313,9 @@ Bajo la carpeta de pruebas, cree la clase `RegistryTest.java` en el directorio `
 package edu.unisabana.tyvs.domain.service;
 
 import edu.unisabana.tyvs.domain.model.*;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class RegistryTest {
 
@@ -325,7 +329,7 @@ public class RegistryTest {
         RegisterResult result = registry.registerVoter(person);
 
         // Assert: verificar el resultado esperado
-        Assert.assertEquals(RegisterResult.VALID, result);
+        assertEquals(RegisterResult.VALID, result);
     }
 }
 ```
@@ -404,7 +408,7 @@ Agregue esta prueba a `RegistryTest`:
         RegisterResult result = registry.registerVoter(dead);
 
         // Assert: verificar el resultado esperado
-        Assert.assertEquals(RegisterResult.DEAD, result);
+        assertEquals(RegisterResult.DEAD, result);
     }
 
 ```
@@ -454,14 +458,14 @@ public class Registry {
 }
 ```
 
-**El refactor también aplica a las pruebas.** Las dos pruebas repiten `new Registry()`; extraiga esa línea a un `@Before`:
+**El refactor también aplica a las pruebas.** Las dos pruebas repiten `new Registry()`; extraiga esa línea a un `@BeforeEach`:
 
 ```java
 public class RegistryTest {
 
     private Registry registry;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         registry = new Registry(); // instancia limpia para cada prueba
     }
@@ -489,7 +493,7 @@ Ejecutar y validar nuevamente el resultado: las dos pruebas siguen en verde. �
 private final Set<Integer> registrados = new HashSet<>();
 ```
 
-Esto convierte a `Registry` en un objeto **con estado**, y eso tiene una consecuencia directa sobre sus pruebas: si dos pruebas comparten la misma instancia, la primera contamina a la segunda y el resultado depende del orden de ejecución (un defecto clásico y muy difícil de diagnosticar). El `@Before` que introdujo en el refactor de la iteración 2 ya lo protege de eso: **cada prueba recibe un `Registry` limpio**.
+Esto convierte a `Registry` en un objeto **con estado**, y eso tiene una consecuencia directa sobre sus pruebas: si dos pruebas comparten la misma instancia, la primera contamina a la segunda y el resultado depende del orden de ejecución (un defecto clásico y muy difícil de diagnosticar). El `@BeforeEach` que introdujo en el refactor de la iteración 2 ya lo protege de eso: **cada prueba recibe un `Registry` limpio**.
 
 Lo que empezó como una limpieza estética resulta ser una condición necesaria para que las pruebas sean independientes. Documente esta observación en su Wiki: es un buen ejemplo de por qué el paso *Refactor* no es opcional.
 
@@ -539,6 +543,97 @@ public enum RegisterResult {
 ```
 
 Recuerde: **no lo escriba todo de una vez**. Cada constante se agrega en la iteración de TDD que la necesita.
+
+---
+
+## PRUEBAS BASADAS EN PROPIEDADES
+
+Las clases de equivalencia parten de una idea potente: *si todos los valores de un grupo se tratan igual, basta probar un representante*. Pero esa idea tiene un supuesto escondido — **que usted acertó al definir el grupo**. Si el código trata distinto al 17 y al 0 aunque ambos sean "menores de edad", su representante elegido nunca lo revelará.
+
+Las **pruebas basadas en propiedades** (property-based testing) eliminan ese supuesto: en vez de elegir el representante a mano, se declara la regla sobre **todo el rango** y la herramienta genera cientos de casos intentando refutarla.
+
+### De ejemplo a propiedad
+
+| Prueba por ejemplo | Propiedad |
+|---|---|
+| «Carlos, 40 años, no vivo → `DEAD`» | «Para **toda** edad, **todo** género y **todo** documento, si no está viva → `DEAD`» |
+| Verifica **un punto** del espacio de entradas | Verifica **el espacio completo** (por muestreo) |
+| Falla mostrando el caso que usted escribió | Falla mostrando el caso **más simple** que la rompe |
+
+Esa última fila es la más valiosa. Cuando una propiedad falla, jqwik no reporta la entrada aleatoria que la rompió, sino que la **reduce al mínimo** (*shrinking*). Si el fallo apareció con "edad 73, nombre `xkqz`, id 88041", le reportará "edad 0, nombre vacío, id 1". Diagnosticar el segundo es mucho más rápido.
+
+### Dependencia (`pom.xml`)
+
+```xml
+    <!-- jqwik: pruebas basadas en propiedades. Requiere la plataforma JUnit 5. -->
+    <dependency>
+      <groupId>net.jqwik</groupId>
+      <artifactId>jqwik</artifactId>
+      <version>1.8.4</version>
+      <scope>test</scope>
+    </dependency>
+```
+
+### Su primera propiedad
+
+Cree `RegistryPropertiesTest.java` junto a `RegistryTest.java`:
+
+```java
+package edu.unisabana.tyvs.domain.service;
+
+import edu.unisabana.tyvs.domain.model.*;
+import net.jqwik.api.*;
+import net.jqwik.api.constraints.IntRange;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class RegistryPropertiesTest {
+
+    @Provide
+    Arbitrary<Gender> generos() {
+        return Arbitraries.of(Gender.values());
+    }
+
+    /** R3: una persona no viva se rechaza SIEMPRE, sin importar lo demás. */
+    @Property
+    void unaPersonaNoVivaSiempreEsRechazada(
+            @ForAll @IntRange(min = 1, max = 100_000) int id,
+            @ForAll @IntRange(min = 0, max = 120) int edad,
+            @ForAll("generos") Gender genero) {
+
+        Person muerta = new Person("X", id, edad, genero, false);
+
+        assertEquals(RegisterResult.DEAD, new Registry().registerVoter(muerta));
+    }
+}
+```
+
+Ejecute `mvn clean test`. jqwik genera **1000 combinaciones** por defecto para esa única propiedad.
+
+### Tres propiedades que valen la pena
+
+Además de traducir cada regla de negocio, hay tres tipos de propiedad que suelen encontrar defectos que ninguna prueba por ejemplo buscaría:
+
+1. **Determinismo** — «el mismo insumo produce el mismo resultado». Parece trivial, pero es exactamente la que se rompe si alguien introduce estado compartido (por ejemplo, un `Set` *estático* de ids en vez de uno de instancia).
+2. **Totalidad** — «nunca devuelve `null` ni lanza una excepción, sea cual sea la entrada». Un contrato débil, pero atrapa desbordamientos y `NullPointerException` en los bordes del dominio.
+3. **Invariante de partición** — «el resultado siempre es uno de los valores del enum», que garantiza que ninguna combinación cae en un hueco no contemplado.
+
+Las tres están implementadas en el repositorio como referencia.
+
+### Su ejercicio
+
+Las propiedades del repositorio corresponden a las reglas **ya implementadas**. Escriba las que faltan, y note que aquí también aplica el ciclo TDD: escriba la propiedad, véala fallar, implemente.
+
+```java
+// Estas dos deben FALLAR hasta que implemente la regla de edad (R5):
+@Property
+void todoMenorDeEdadEsRechazado(@ForAll @IntRange(min = 0, max = 17) int edad) { ... }
+
+@Property
+void todoAdultoValidoSeRegistra(@ForAll @IntRange(min = 18, max = 120) int edad) { ... }
+```
+
+> ⚠️ **Cuándo NO usar property-based.** No reemplaza a las pruebas por ejemplo, las complementa. Los ejemplos concretos documentan el comportamiento esperado y se leen como especificación; las propiedades exploran. Un caso de negocio importante merece **ambas**: una propiedad que cubre el rango y un ejemplo nombrado que explica por qué ese rango importa.
 
 ---
 
@@ -616,7 +711,105 @@ mvn jacoco:report
 
 Revisa el archivo `target/site/jacoco/index.html`.
 
-> 📊 **Referencia**: con las dos pruebas de las iteraciones 1 y 2, la cobertura global arranca en **~87%**. Al completar las clases de equivalencia que faltan debería superar el 90%.
+> 📊 **Referencia**: con las pruebas de las iteraciones 1 y 2, la cobertura global arranca en **~89%**. Al completar las clases de equivalencia que faltan debería superar el 95%.
+
+---
+
+### 2.1 Por qué la cobertura no basta: pruebas de mutación
+
+Antes de celebrar ese 89%, hagamos un experimento. Escriba esta prueba y vuelva a medir:
+
+```java
+@Test
+void pruebaInutil() {
+    new Registry().registerVoter(new Person("X", 1, 30, Gender.FEMALE, true));
+    // sin ningun assert
+}
+```
+
+La cobertura **sube**. La línea se ejecutó, JaCoCo la cuenta. Pero la prueba no verifica absolutamente nada: si `registerVoter` devolviera `DEAD` en vez de `VALID`, seguiría pasando.
+
+Esa es la limitación fundamental de la cobertura: mide **qué código se ejecutó**, no **qué comportamiento se verificó**. Y como es la métrica que casi todas las organizaciones exigen, es también la más fácil de inflar sin mejorar nada. En la industria se le llama *coverage theater*.
+
+#### Qué mide la mutación
+
+Las **pruebas de mutación** responden la pregunta correcta: *si el código cambiara, ¿se enteraría alguna prueba?*
+
+La herramienta introduce cambios pequeños y deliberados en el código —cambiar `>=` por `>`, invertir un `if`, reemplazar un retorno por `0` o `null`— y ejecuta la suite contra cada versión mutada. Cada cambio se llama **mutante**:
+
+- Si alguna prueba **falla**, el mutante está *eliminado* (killed). Bien: sus pruebas notan la diferencia.
+- Si **todas siguen pasando**, el mutante *sobrevive*. Mal: ese comportamiento no está verificado por nadie.
+
+El **mutation score** es el porcentaje de mutantes eliminados. A diferencia de la cobertura, **no se puede inflar sin escribir aserciones reales**.
+
+#### Configuración (`pom.xml`)
+
+```xml
+        <plugin>
+          <groupId>org.pitest</groupId>
+          <artifactId>pitest-maven</artifactId>
+          <version>1.16.1</version>
+          <dependencies>
+            <!-- Necesario para que PIT reconozca pruebas JUnit 5. -->
+            <dependency>
+              <groupId>org.pitest</groupId>
+              <artifactId>pitest-junit5-plugin</artifactId>
+              <version>1.2.1</version>
+            </dependency>
+          </dependencies>
+          <configuration>
+            <!-- Solo mutamos el dominio: es donde viven las reglas de negocio. -->
+            <targetClasses>
+              <param>edu.unisabana.tyvs.domain.*</param>
+            </targetClasses>
+            <targetTests>
+              <param>edu.unisabana.tyvs.domain.*</param>
+            </targetTests>
+            <outputFormats>
+              <param>HTML</param>
+              <param>XML</param>
+            </outputFormats>
+            <!-- Si el mutation score baja de 60, el build falla. -->
+            <mutationThreshold>60</mutationThreshold>
+          </configuration>
+        </plugin>
+```
+
+Ejecuta:
+
+```sh
+mvn test-compile org.pitest:pitest-maven:mutationCoverage
+```
+
+Revisa el reporte en `target/pit-reports/index.html`. Las líneas en **verde** tienen mutantes eliminados; las **rosadas**, mutantes que sobrevivieron.
+
+#### El resultado que le va a salir
+
+Con las pruebas de las iteraciones 1 y 2, el contraste es este:
+
+| Métrica | Valor | Lectura |
+|---|---|---|
+| Cobertura JaCoCo | **89%** | Parece excelente |
+| Mutation score | **64%** | La realidad |
+
+Y los cuatro mutantes que sobreviven son estos:
+
+```text
+Person.getAge()    -> reemplazar el retorno por 0
+Person.getId()     -> reemplazar el retorno por 0
+Person.getName()   -> reemplazar el retorno por ""
+Person.getGender() -> reemplazar el retorno por null
+```
+
+Ninguna prueba los mata porque el `Registry` de la iteración 2 **solo llama a `isAlive()`**. Los demás getters se ejecutan al construir el objeto —por eso JaCoCo los cuenta como cubiertos— pero su valor nunca influye en ningún resultado verificado.
+
+> 🎯 **Lo interesante**: esos mutantes van a morir solos a medida que usted implemente las reglas que faltan. Cuando `registerVoter` consulte la edad, un `getAge()` que devuelva `0` romperá la prueba de `UNDERAGE`. **El mutation score mide el avance real de su TDD**, no cuántas líneas tocó.
+
+#### Reflexión para el Wiki
+
+- ¿Cuál fue su cobertura y cuál su mutation score al terminar? ¿Por qué difieren?
+- Elija un mutante que haya sobrevivido y escriba la prueba que lo elimina. ¿Qué comportamiento no estaba verificando?
+- ¿Puede tener 100% de cobertura y 0% de mutación? Construya el ejemplo.
 
 ---
 
@@ -718,12 +911,26 @@ Incluye **enlaces al código** (clases y tests) dentro de cada sección del Wiki
 - Nomenclatura clara de métodos de prueba (`should…When…()`).
 - Tests en `src/test/java` **mismo paquete** que la clase probada.
 
-### 4) Cobertura (JaCoCo)
+### 4) Cobertura y calidad de las pruebas
 
-- Reporte **JaCoCo** generado en `target/site/jacoco/index.html` (`mvn clean verify`).
+**Cobertura (JaCoCo)**
+
+- Reporte generado en `target/site/jacoco/index.html` (`mvn clean verify`).
 - **≥ 80%** cobertura **global** (y ≥ 80% en el paquete de dominio).
 - Adjuntar **capturas** en el Wiki y comentar brevemente qué líneas quedaron sin cubrir y por qué.
-- La clase `App` del arquetipo está **excluida** del reporte (ver `<excludes>` en el `pom.xml`): es un `Hello World` sin lógica de negocio y, sin excluirla, baja la cobertura global unos 7 puntos.
+
+**Mutación (PIT)**
+
+- Reporte generado en `target/pit-reports/index.html` (`mvn test-compile org.pitest:pitest-maven:mutationCoverage`).
+- **≥ 60%** de *mutation score* en el paquete de dominio. El `pom.xml` ya tiene el umbral configurado: si baja de 60, el build falla.
+- Adjuntar captura y **analizar al menos un mutante que haya sobrevivido**: qué comportamiento no estaba verificado y qué prueba lo elimina.
+- Comparar ambas cifras y explicar la diferencia. Un salto grande entre cobertura y mutación es la señal de que hay pruebas que ejecutan código sin verificarlo.
+
+### 4b) Pruebas basadas en propiedades (jqwik)
+
+- Al menos **3 propiedades** en `RegistryPropertiesTest`, además de las de referencia.
+- Al menos una debe corresponder a una **regla de negocio** (R1–R7) y otra a una propiedad **estructural** (determinismo, totalidad o invariante de partición).
+- En el Wiki: para una propiedad que haya fallado, mostrar el contraejemplo **reducido** que reportó jqwik y explicar por qué esa versión mínima es más útil que la entrada aleatoria original.
 
 ### 5) Evidencia de TDD
 
@@ -751,7 +958,7 @@ Incluye **enlaces al código** (clases y tests) dentro de cada sección del Wiki
 - Constantes extraídas (ej.: `MIN_AGE`, `MAX_AGE`).
 - Sin **código muerto** ni duplicación obvia.
   - Elimine los sobrantes del arquetipo Maven que ya no aporten: la prueba `AppTest.shouldAnswerWithTrue()` (`assertTrue(true)` no verifica nada) y, si no la usa, la clase `App`. Solo sirvieron para comprobar que el proyecto se creó bien.
-  - Use `@Before` para no repetir `new Registry()` en cada prueba.
+  - Use `@BeforeEach` para no repetir `new Registry()` en cada prueba.
 - Nombrado autoexplicativo y comentarios mínimos pero útiles.
 
 ### 9) Reflexión final (en el Wiki)
@@ -770,16 +977,20 @@ Incluye **enlaces al código** (clases y tests) dentro de cada sección del Wiki
 | **Clases de equivalencia y valores límite** | Identificación y cobertura de casos representativos. | Tabla completa, justificada y reflejada en los tests. | Tabla parcial o con pocos valores límite. | Algunos valores correctos, pero sin justificación. | Casos incompletos o poco claros. | No presenta tabla ni aplica esta técnica. |
 | **Escenarios BDD (Given–When–Then)** | Traducción de pruebas a lenguaje de negocio. | Escenarios coherentes, completos y equivalentes a los tests. | Escenarios claros pero incompletos o poco detallados. | Redacción poco precisa o sin conexión con el código. | Escenarios confusos o mal formulados. | No aplica BDD. |
 | **Cobertura de código (JaCoCo)** | Porcentaje de cobertura alcanzado. | ≥ 80% cobertura global y en dominio. | Entre 70% y 79% cobertura. | Entre 60% y 69%. | Menor al 60% o sin reporte. | No incluye reporte de cobertura. |
+| **Calidad de las pruebas (mutación, PIT)** | Mutation score y análisis de mutantes sobrevivientes. | ≥ 60% de mutación y análisis de al menos un mutante sobreviviente con la prueba que lo elimina. | ≥ 60% de mutación, análisis superficial. | Entre 40% y 59%, o sin análisis. | Menor al 40% o solo la captura sin interpretar. | No incluye reporte de mutación. |
+| **Pruebas basadas en propiedades (jqwik)** | Uso de propiedades sobre rangos, no solo ejemplos. | 3+ propiedades, incluida una estructural, con contraejemplo reducido analizado. | 3 propiedades correctas, sin análisis del shrinking. | 1 o 2 propiedades, o solo traducciones directas de ejemplos. | Propiedades mal formuladas o que no ejercitan rangos. | No aplica property-based testing. |
 | **Gestión de defectos** | Registro de defectos encontrados o simulados. | `defectos.md` completo, con análisis y estado. | Archivo presente, con defectos parciales o sin estado. | Registro incompleto o superficial. | Mención sin evidencia o formato incorrecto. | No presenta archivo de defectos. |
 | **Calidad del código** | Claridad, mantenibilidad y buenas prácticas. | Código limpio, nombres expresivos, sin duplicación. | Buen estilo con pequeñas omisiones. | Algunos errores de estilo o duplicación leve. | Código desordenado o poco legible. | Código inadecuado o incompleto. |
 | **Documentación y reflexión** | README o Wiki con explicaciones y aprendizajes. | Documentación completa con reflexión crítica. | Documentación clara pero sin análisis profundo. | Información incompleta o desorganizada. | Texto mínimo sin evidencia de comprensión. | Sin documentación. |
 
+> **Cómo suma**: 11 criterios × 5 pts = **55 puntos**. Son 10 filas, pero *Aplicación de TDD* vale por dos.
+
 | Rango de puntaje | Desempeño                                                |
 | ---------------- | -------------------------------------------------------- |
-| 45 – 50          | Excelente dominio técnico y metodológico.                |
-| 35 – 44          | Buen trabajo con documentación o cobertura parcial.      |
-| 30 – 34          | Cumple con lo básico pero sin profundidad.               |
-| < 30             | No cumple con los criterios mínimos del taller/proyecto. |
+| 50 – 55          | Excelente dominio técnico y metodológico.                |
+| 39 – 49          | Buen trabajo con documentación o cobertura parcial.      |
+| 33 – 38          | Cumple con lo básico pero sin profundidad.               |
+| < 33             | No cumple con los criterios mínimos del taller/proyecto. |
 
 ---
 
