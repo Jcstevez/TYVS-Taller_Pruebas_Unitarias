@@ -23,11 +23,12 @@ public class Registry {
         if (p == null) {
             return RegisterResult.INVALID; // regla defensiva
         }
+        if (p.getId() <= 0) {
+            return RegisterResult.INVALID;
+        }
         if (!p.isAlive()) {
             return RegisterResult.DEAD;
         }
-        // Implementacion minima para pasar las pruebas de la iteracion 2.
-        // TODO iteracion 3 en adelante: validar id, edad y duplicados.
         return RegisterResult.VALID;
     }
 }
