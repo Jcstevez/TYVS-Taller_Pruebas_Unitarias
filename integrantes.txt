@@ -1,0 +1,7 @@
+Taller de Pruebas Unitarias (TDD) - Registraduria
+Curso: Testing y Validacion de Software
+Universidad de La Sabana
+
+Integrantes:
+- Juan Camilo Estevez Otalora
+- Sofy Alejandra Prada Murillo
