@@ -95,4 +95,43 @@ class RegistryTest {
         // Assert
         assertEquals(RegisterResult.INVALID, result);
     }
+
+        @Test
+    @DisplayName("Una edad negativa se rechaza con INVALID_AGE (borde inferior)")
+    void shouldRejectWhenAgeIsNegative() {
+        // Arrange
+        Person person = new Person("Marta", 10, -1, Gender.FEMALE, true);
+
+        // Act
+        RegisterResult result = registry.registerVoter(person);
+
+        // Assert
+        assertEquals(RegisterResult.INVALID_AGE, result);
+    }
+
+    @Test
+    @DisplayName("Una edad mayor a 120 se rechaza con INVALID_AGE (borde superior)")
+    void shouldRejectWhenAgeIsOver120() {
+        // Arrange
+        Person person = new Person("Marta", 11, 121, Gender.FEMALE, true);
+
+        // Act
+        RegisterResult result = registry.registerVoter(person);
+
+        // Assert
+        assertEquals(RegisterResult.INVALID_AGE, result);
+    }
+
+    @Test
+    @DisplayName("Una edad de exactamente 120 anios SI es valida (borde superior incluido)")
+    void shouldAcceptMaxAge120() {
+        // Arrange
+        Person person = new Person("Marta", 12, 120, Gender.FEMALE, true);
+
+        // Act
+        RegisterResult result = registry.registerVoter(person);
+
+        // Assert
+        assertEquals(RegisterResult.VALID, result);
+    }
 }
