@@ -76,3 +76,14 @@ Los defectos de abajo se detectaron sobre el estado del código **al terminar la
 - Se pueden usar **ambos formatos** o elegir uno como estándar de equipo.
 - El objetivo es **gestionar la calidad del software** y **demostrar un proceso sistemático de testing**.
 - Mantener este archivo actualizado durante todo el ciclo de desarrollo.
+
+---
+
+---
+
+### Análisis de mutantes sobrevivientes (PIT)
+
+- **Mutantes sobrevivientes**: `Person.getName()` (línea 19, mutante que reemplaza el retorno por `""`) y `Person.getGender()` (línea 31, mutante que reemplaza el retorno por `null`). Ambos marcados `NO_COVERAGE`.
+- **Comportamiento no verificado**: ningún test ejercita una decisión de `Registry` que dependa de `name` o `gender`.
+- **Por qué no se puede "matar" con una prueba adicional**: según la tabla de reglas de negocio del README (R1-R7), `registerVoter` solo evalúa `id`, `age` y `alive`. `name` y `gender` no participan en ninguna regla. Escribir un test que solo llame a `getName()` sin usar el resultado en una decisión de `Registry` no eliminaría el mutante de forma significativa (sería el mismo error que el "pruebaInutil" que menciona el README sobre coverage theater).
+- **Conclusión**: estos dos mutantes sobrevivientes no son un defecto de nuestras pruebas, sino evidencia correcta de que `name` y `gender` son atributos informativos de `Person` sin impacto en las reglas de negocio actuales. El mutation score (92% global, 100% en `domain.service`) confirma que toda la lógica de negocio SÍ está verificada.
