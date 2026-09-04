@@ -134,4 +134,58 @@ class RegistryTest {
         // Assert
         assertEquals(RegisterResult.VALID, result);
     }
+
+        @Test
+    @DisplayName("Una persona de 17 anios se rechaza con UNDERAGE (borde superior de la clase menor)")
+    void shouldRejectUnderageAt17() {
+        // Arrange
+        Person person = new Person("Sofia", 13, 17, Gender.FEMALE, true);
+
+        // Act
+        RegisterResult result = registry.registerVoter(person);
+
+        // Assert
+        assertEquals(RegisterResult.UNDERAGE, result);
+    }
+
+    @Test
+    @DisplayName("Una persona de 18 anios SI se registra (borde inferior de la clase adulta)")
+    void shouldAcceptAdultAt18() {
+        // Arrange
+        Person person = new Person("Sofia", 14, 18, Gender.FEMALE, true);
+
+        // Act
+        RegisterResult result = registry.registerVoter(person);
+
+        // Assert
+        assertEquals(RegisterResult.VALID, result);
+    }
+
+    @Test
+    @DisplayName("Registrar dos veces el mismo id devuelve DUPLICATED la segunda vez")
+    void shouldRejectDuplicatedId() {
+        // Arrange
+        Person primera = new Person("Andres", 20, 25, Gender.MALE, true);
+        Person segunda = new Person("Andres Impostor", 20, 40, Gender.MALE, true);
+        registry.registerVoter(primera); // primer registro: queda VALID
+
+        // Act
+        RegisterResult result = registry.registerVoter(segunda);
+
+        // Assert
+        assertEquals(RegisterResult.DUPLICATED, result);
+    }
+
+    @Test
+    @DisplayName("Una persona muerta Y menor de edad da DEAD, no UNDERAGE (R3 se evalua antes que R5)")
+    void deadRuleTakesPrecedenceOverUnderage() {
+        // Arrange: persona muerta de 15 anios
+        Person person = new Person("Nino", 30, 15, Gender.MALE, false);
+
+        // Act
+        RegisterResult result = registry.registerVoter(person);
+
+        // Assert
+        assertEquals(RegisterResult.DEAD, result);
+    }
 }
