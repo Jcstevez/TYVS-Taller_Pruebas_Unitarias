@@ -112,4 +112,54 @@ class RegistryPropertiesTest {
 
         org.junit.jupiter.api.Assertions.assertNotNull(resultado);
     }
+    /**
+     * Regla R5: TODO menor de edad (0..17), vivo y con id valido, se rechaza
+     * con UNDERAGE. Traduce la fila "Clase menor" de la matriz de clases de
+     * equivalencia a una propiedad sobre el rango completo.
+     */
+    @Property
+    void todoMenorDeEdadEsRechazado(
+            @ForAll("nombres") String nombre,
+            @ForAll @IntRange(min = 1, max = 100_000) int id,
+            @ForAll @IntRange(min = 0, max = 17) int edad) {
+
+        Person menor = new Person(nombre, id, edad, Gender.UNIDENTIFIED, true);
+
+        assertEquals(RegisterResult.UNDERAGE, new Registry().registerVoter(menor));
+    }
+
+    /**
+     * Regla R7 (camino feliz): TODO adulto (18..120), vivo, con id valido y
+     * unico dentro de un Registry limpio, queda VALID.
+     */
+    @Property
+    void todoAdultoValidoSeRegistra(
+            @ForAll("nombres") String nombre,
+            @ForAll @IntRange(min = 1, max = 100_000) int id,
+            @ForAll @IntRange(min = 18, max = 120) int edad) {
+
+        Person adulto = new Person(nombre, id, edad, Gender.UNIDENTIFIED, true);
+
+        assertEquals(RegisterResult.VALID, new Registry().registerVoter(adulto));
+    }
+
+    /**
+     * Propiedad ESTRUCTURAL de INVARIANTE DE PARTICION: sea cual sea la
+     * entrada, el resultado siempre cae en uno de los seis valores del enum.
+     */
+    @Property
+    void elResultadoSiempreEsUnValorDelEnum(
+            @ForAll("nombres") String nombre,
+            @ForAll int id,
+            @ForAll int edad,
+            @ForAll("generos") Gender genero,
+            @ForAll boolean viva) {
+
+        Person p = new Person(nombre, id, edad, genero, viva);
+
+        RegisterResult resultado = new Registry().registerVoter(p);
+
+        org.junit.jupiter.api.Assertions.assertTrue(
+                java.util.Arrays.asList(RegisterResult.values()).contains(resultado));
+    }
 }
